@@ -13,3 +13,7 @@ desktop.ini
 # Fichiers de travail : originaux lourds et aperçus mis de côté.
 # Ils restent sur votre disque mais ne sont ni versionnés ni déployés.
 assets/reserve/
+
+# Notes de travail, pas du site public
+linkedin.md
+assets/linkedin-banniere.png
