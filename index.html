@@ -1441,6 +1441,10 @@ ul { list-style: none; margin: 0; padding: 0; }
       if (el.hidden) return;
       el.dataset.depth = depth;
       el.style.zIndex = String(VISIBLE - depth);     // la carte du dessus passe devant ses suivantes
+      /* L'animation de sortie est en fill:forwards : terminée, elle impose encore sa
+         position finale, et une animation l'emporte sur un style en ligne. Sans ce
+         retrait, une carte rappelée par « Précédent » revient invisible, hors écran. */
+      if (el.getAnimations) el.getAnimations().forEach(a => a.cancel());
       el.dataset.gone = 'false';
       el.dataset.settling = 'false';
       el.style.transform = '';
