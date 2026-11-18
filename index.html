@@ -178,7 +178,9 @@ ul { list-style: none; margin: 0; padding: 0; }
   padding-left: max(var(--s-6), env(safe-area-inset-left, 0px));
   padding-right: max(var(--s-6), env(safe-area-inset-right, 0px));
 }
-.section { padding-block: var(--s-9); scroll-margin-top: 5.5rem; position: relative; }
+/* --nav-h est mesurée en direct par le script : une ancre ne doit jamais
+   déposer un titre derrière la barre collante, dont la hauteur varie. */
+.section { padding-block: var(--s-9); scroll-margin-top: calc(var(--nav-h, 5.5rem) + var(--s-5)); position: relative; }
 .eyebrow {
   display: inline-flex; align-items: center; gap: var(--s-4);
   font: 500 var(--t--1)/1.4 var(--font-mono); letter-spacing: 0.14em;
@@ -301,11 +303,29 @@ ul { list-style: none; margin: 0; padding: 0; }
 .theme:hover { transform: rotate(34deg); }
 :root[data-theme="light"] .theme .moon, :root[data-theme="dark"] .theme .sun { display: none; }
 @media (max-width: 64rem) { .social { display: none; } }
+/* Sur téléphone, la barre collante tenait sur trois rangées et mangeait un quart
+   de l'écran. On supprime la recherche — les onglets filtrent déjà les projets —
+   et on serre tout : deux rangées, moitié moins haut. */
 @media (max-width: 48rem) {
-  .nav__links { order: 3; width: 100%; justify-content: space-between; gap: 0; overflow-x: auto; }
-  .nav__links a { padding: 0 var(--s-4); }
-  .search input { width: 100%; }
-  .search { flex: 1; min-width: 7rem; }
+  .nav__row { padding-block: var(--s-3); gap: var(--s-3); }
+  .search { display: none; }
+  .logo { font-size: var(--t-0); gap: var(--s-3); }
+  .nav__row > nav { order: 3; width: 100%; }
+  .desk { display: none; }                     /* consignes clavier : inutiles au doigt */
+  /* un fondu à droite dit que la rangée de liens se fait défiler */
+  .nav__links { -webkit-mask-image: linear-gradient(90deg, #000 86%, transparent); mask-image: linear-gradient(90deg, #000 86%, transparent); }   /* c'est le <nav> qui descend, pas la liste */
+  .foot a { display: inline-block; padding-block: var(--s-4); }
+  .nav__links {
+    order: 3; width: 100%; gap: 0; overflow-x: auto; scrollbar-width: none;
+    flex-wrap: nowrap;                       /* sans ça les liens se répartissent sur deux rangées */
+    justify-content: flex-start; scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nav__links::-webkit-scrollbar { display: none; }
+  .nav__links a { padding: 0 var(--s-5); min-height: 2.5rem; scroll-snap-align: start; white-space: nowrap; }
+  .nav__links a[aria-current="true"]::after { bottom: 0.1rem; }
+  .theme { width: 2.5rem; height: 2.5rem; }
+  .theme svg { width: 1rem; height: 1rem; }
 }
 
 /* ============================ HÉROS (maquette 2) ============================ */
@@ -442,7 +462,7 @@ ul { list-style: none; margin: 0; padding: 0; }
 
 .swipe__media { position: relative; overflow: hidden; background: linear-gradient(145deg, oklch(0.55 0.19 var(--h)), oklch(0.82 0.14 calc(var(--h) + 55))); }
 .swipe__media img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
-.swipe__media img[data-fit="top"] { object-position: 50% 13%; }   /* on coupe la barre d'état du téléphone */
+.swipe__media img[data-fit="top"] { object-position: 50% 19%; }   /* on coupe la barre d'état du téléphone */
 .swipe__media[data-logo="true"] { display: grid; place-items: center; padding: var(--s-8); }
 .swipe__media[data-logo="true"] img { width: auto; max-width: 70%; height: auto; max-height: 70%; object-fit: contain; border-radius: var(--r-2); box-shadow: 0 var(--s-5) var(--s-7) calc(-1 * var(--s-4)) oklch(0.1 0.02 0 / 0.45); }
 /* dégradé de lisibilité sous le texte */
@@ -570,7 +590,23 @@ ul { list-style: none; margin: 0; padding: 0; }
 
 .note { margin-top: var(--s-6); font-size: var(--t--1); color: var(--c-fg-muted); }
 .note code { font-family: var(--font-mono); color: var(--c-lime-text); }
-@media (max-width: 30rem) { .deck { aspect-ratio: 3 / 4.6; } }
+/* Sur petit écran, le texte occupait tant de place que l'aperçu du projet tombait
+   à 135 px : on resserre le corps de la carte pour que l'image reste l'essentiel. */
+@media (max-width: 26rem) {
+  .deck { aspect-ratio: 3 / 4.8; }
+  .swipe__body { padding: var(--s-5); gap: var(--s-3); }
+  .swipe__body h3 { font-size: var(--t-0); }
+  .swipe__body > p {
+    font-size: var(--t--1); line-height: 1.45;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  }
+  .card__meta { font-size: var(--t--2); }
+  .card__stack { max-height: 1.65rem; overflow: hidden; }      /* une seule rangée de techno */
+  .card__stack li { padding: var(--s-2) var(--s-3); }
+  .swipe__links { margin-top: 0; }
+  .go { min-height: 2.75rem; }                                  /* cible tactile pleine */
+  .swipe__media { min-height: 44%; }
+}
 
 /* ============================ PARCOURS + COMPÉTENCES ============================ */
 .split { display: grid; grid-template-columns: minmax(0, 1.618fr) minmax(0, 1fr); gap: var(--s-8); align-items: start; }
@@ -962,7 +998,7 @@ ul { list-style: none; margin: 0; padding: 0; }
       <div class="head reveal">
         <p class="eyebrow">Projets récents</p>
         <h2 class="h2" id="projets-t">Mes projets, carte par carte</h2>
-        <p class="lede">Faites glisser la carte horizontalement — à la souris, ou à deux doigts sur le pavé tactile. Les boutons font la même chose. Au clavier : → pour avancer, ← pour revenir, Entrée pour ouvrir le dossier.</p>
+        <p class="lede">Faites glisser la carte horizontalement, ou utilisez les boutons.<span class="desk"> À la souris, à deux doigts sur le pavé tactile, ou au clavier : → pour avancer, ← pour revenir, Entrée pour ouvrir le dossier.</span></p>
       </div>
 
       <div class="tabs" role="tablist" aria-label="Filtrer les projets" id="tabs"></div>
@@ -1761,7 +1797,16 @@ ul { list-style: none; margin: 0; padding: 0; }
     $$('b[data-to]').forEach(el => { el.textContent = el.dataset.to + (el.dataset.suffix || ''); });
   }
 
-  /* ---------- 9. Progression de lecture + section active (scrollspy) ---------- */
+  /* ---------- 9. Hauteur réelle de la barre, progression, section active ---------- */
+  /* La barre collante passe de 55 px sur ordinateur à plus de 100 px sur téléphone.
+     On publie sa hauteur mesurée pour que scroll-margin-top s'y adapte, sinon une
+     ancre dépose le titre de la section juste derrière elle. */
+  const navEl = document.querySelector('.nav');
+  const mesureNav = () => root.style.setProperty('--nav-h', Math.round(navEl.getBoundingClientRect().height) + 'px');
+  mesureNav();
+  if ('ResizeObserver' in window) new ResizeObserver(mesureNav).observe(navEl);
+  else addEventListener('resize', mesureNav);
+
   const progress = $('#progress');
   const navLinks = $$('#nav-links a');
   const sections = navLinks.map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
