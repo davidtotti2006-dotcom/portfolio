@@ -962,7 +962,7 @@ ul { list-style: none; margin: 0; padding: 0; }
       <div class="head reveal">
         <p class="eyebrow">Projets récents</p>
         <h2 class="h2" id="projets-t">Mes projets, carte par carte</h2>
-        <p class="lede">Faites glisser la carte horizontalement pour passer au projet suivant, ou utilisez les boutons. Au clavier : → pour avancer, ← pour revenir, Entrée pour ouvrir le dossier.</p>
+        <p class="lede">Faites glisser la carte horizontalement — à la souris, ou à deux doigts sur le pavé tactile. Les boutons font la même chose. Au clavier : → pour avancer, ← pour revenir, Entrée pour ouvrir le dossier.</p>
       </div>
 
       <div class="tabs" role="tablist" aria-label="Filtrer les projets" id="tabs"></div>
@@ -1613,6 +1613,27 @@ ul { list-style: none; margin: 0; padding: 0; }
      ne doit jamais laisser le geste en cours et figer les cartes. */
   addEventListener('pointerup', endDrag);
   addEventListener('pointercancel', endDrag);
+
+  /* ----- pavé tactile -----
+     Un glissement à deux doigts n'émet aucun événement de pointeur : seulement des
+     événements de molette sur l'axe X. Sans ce gestionnaire, la pile paraît figée à
+     qui ne pense pas à cliquer-glisser. On ne touche jamais à l'axe vertical, donc
+     le défilement de la page reste entier. */
+  let wheelAcc = 0, wheelIdle = 0, wheelLock = 0;
+  deck.addEventListener('wheel', e => {
+    if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;    // geste vertical : il appartient à la page
+    e.preventDefault();
+    const now = performance.now();
+    if (now < wheelLock || deckMachine.state !== 'idle') return;
+    wheelAcc += e.deltaX;
+    clearTimeout(wheelIdle);
+    wheelIdle = setTimeout(() => { wheelAcc = 0; }, 200);     // l'élan retombe : on repart de zéro
+    if (Math.abs(wheelAcc) < 55) return;
+    const forward = wheelAcc > 0;
+    wheelAcc = 0;
+    wheelLock = now + 500;                                   // on ignore l'inertie qui suit le geste
+    if (forward) next('right'); else prev();
+  }, { passive: false });
 
   /* ----- boutons et clavier ----- */
   $('#act-prev').addEventListener('click', prev);
