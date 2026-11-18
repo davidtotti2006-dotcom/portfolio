@@ -962,16 +962,16 @@ ul { list-style: none; margin: 0; padding: 0; }
       <div class="head reveal">
         <p class="eyebrow">Projets récents</p>
         <h2 class="h2" id="projets-t">Mes projets, carte par carte</h2>
-        <p class="lede">Faites glisser la carte pour passer au projet suivant, ou utilisez les boutons. Au clavier : → pour avancer, ← pour revenir, ↑ pour ouvrir le dossier complet.</p>
+        <p class="lede">Faites glisser la carte horizontalement pour passer au projet suivant, ou utilisez les boutons. Au clavier : → pour avancer, ← pour revenir, Entrée pour ouvrir le dossier.</p>
       </div>
 
       <div class="tabs" role="tablist" aria-label="Filtrer les projets" id="tabs"></div>
 
       <div class="deck-wrap">
         <!-- la pile : les cartes sont empilées, seule celle du dessus est manipulable -->
-        <div class="deck" id="deck" role="application"
+        <div class="deck" id="deck" role="group"
              aria-roledescription="pile de cartes de projets"
-             aria-label="Projets, un par carte. Flèche droite pour le projet suivant, flèche gauche pour le précédent, flèche haut pour ouvrir le dossier complet."
+             aria-label="Projets, un par carte. Flèche droite pour le projet suivant, flèche gauche pour le précédent, touche Entrée pour ouvrir le dossier complet."
              tabindex="0">
           <div class="deck__end" id="deck-end" hidden>
             <p class="deck__end-emoji" aria-hidden="true">✦</p>
@@ -990,7 +990,7 @@ ul { list-style: none; margin: 0; padding: 0; }
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
             <span>Précédent</span>
           </button>
-          <button class="act act--open" type="button" id="act-open" aria-label="Ouvrir le dossier complet du projet" aria-keyshortcuts="ArrowUp">
+          <button class="act act--open" type="button" id="act-open" aria-label="Ouvrir le dossier complet du projet" aria-keyshortcuts="Enter">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h6l2 2h8v10a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>
             <span>Le dossier</span>
           </button>
@@ -1496,11 +1496,18 @@ ul { list-style: none; margin: 0; padding: 0; }
     el.dataset.gone = 'true';
     const end = 'translate3d(' + x + 'px,' + (from.y - 30) + 'px,0) rotateZ(' + r + 'deg)';
     if (reduced || !el.animate) { el.style.transform = end; el.style.opacity = '0'; return Promise.resolve(); }
-    return el.animate(
+    const anim = el.animate(
       [{ transform: 'translate3d(' + from.x + 'px,' + from.y + 'px,0) rotateZ(' + from.r + 'deg)', opacity: 1 },
        { transform: end, opacity: 0.15 }],
       { duration: 420, easing: FLY, fill: 'forwards' }
-    ).finished.catch(() => {});
+    );
+    /* L'animation peut ne jamais aboutir : onglet passé en arrière-plan, mise en veille,
+       animation annulée. On ne lui fait donc pas confiance pour débloquer la pile —
+       une échéance la double, et la carte suivante arrive quoi qu'il arrive. */
+    return Promise.race([
+      anim.finished.catch(() => {}),
+      new Promise(resolve => setTimeout(resolve, 600))
+    ]);
   }
 
   /* Avancer d'un projet. La direction ne sert qu'à l'animation : elle ne porte aucun jugement. */
@@ -1532,23 +1539,41 @@ ul { list-style: none; margin: 0; padding: 0; }
     announce();
   }
 
-  /* ----- geste : pointer events, suivi en temps réel ----- */
+  /* ----- geste : pointer events, suivi en temps réel -----
+     Au doigt, la pile ne prend la main qu'une fois le mouvement franchement horizontal.
+     Tant que le doigt monte ou descend, le geste appartient au navigateur et la page
+     défile normalement : c'est ce qui évite de rester coincé sur la section. */
   let drag = null;
+  const SLOP = 8;                                      // zone morte avant de trancher le sens
+
+  function beginDrag(d) {
+    try { d.el.setPointerCapture(d.id); } catch (_) {}
+    d.el.dataset.settling = 'false';
+    d.active = true;
+    deckMachine.send('DRAG');
+  }
+
   deck.addEventListener('pointerdown', e => {
+    if (!drag && deckMachine.state === 'dragging') deckMachine.send('DROP');  // filet : état resté coincé
     const el = top();
     if (!el || el.hidden || deckMachine.state !== 'idle') return;
     if (!el.contains(e.target) || e.target.closest('a, button')) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    try { el.setPointerCapture(e.pointerId); } catch (_) {}
-    drag = { id: e.pointerId, el, x0: e.clientX, y0: e.clientY, x: 0, y: 0, r: 0, t: performance.now() };
-    el.dataset.settling = 'false';
-    deckMachine.send('DRAG');
+    drag = { id: e.pointerId, el, x0: e.clientX, y0: e.clientY, x: 0, y: 0, r: 0,
+             t: performance.now(), active: false };
+    if (e.pointerType === 'mouse') beginDrag(drag);      // à la souris, rien n'entre en conflit
   });
 
   deck.addEventListener('pointermove', e => {
     if (!drag || e.pointerId !== drag.id) return;
-    drag.x = e.clientX - drag.x0;
-    drag.y = e.clientY - drag.y0;
+    const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+    if (!drag.active) {
+      if (Math.abs(dx) < SLOP && Math.abs(dy) < SLOP) return;          // sens encore indécis
+      if (Math.abs(dy) >= Math.abs(dx)) { drag = null; return; }       // défilement : on rend la main
+      beginDrag(drag);
+    }
+    drag.x = dx;
+    drag.y = dy;
     const dt = Math.max(16, performance.now() - drag.t);
     const speed = Math.abs(drag.x) / dt;                 // la rotation suit la distance ET la vitesse
     drag.r = Math.max(-18, Math.min(18, drag.x / 15 + Math.sign(drag.x) * speed * 5));
@@ -1560,6 +1585,7 @@ ul { list-style: none; margin: 0; padding: 0; }
   function endDrag(e) {
     if (!drag || (e && e.pointerId !== drag.id)) return;
     const d = drag; drag = null;
+    if (!d.active) return;                               // simple appui, ou geste laissé au défilement
     try { d.el.releasePointerCapture(d.id); } catch (_) {}
     const w = deck.clientWidth || 320, h = deck.clientHeight || 420;
     const dt = Math.max(16, performance.now() - d.t);
@@ -1583,6 +1609,10 @@ ul { list-style: none; margin: 0; padding: 0; }
   }
   deck.addEventListener('pointerup', endDrag);
   deck.addEventListener('pointercancel', endDrag);
+  /* Filet de sécurité : un relâchement hors de la pile — ou hors de la fenêtre —
+     ne doit jamais laisser le geste en cours et figer les cartes. */
+  addEventListener('pointerup', endDrag);
+  addEventListener('pointercancel', endDrag);
 
   /* ----- boutons et clavier ----- */
   $('#act-prev').addEventListener('click', prev);
@@ -1591,11 +1621,12 @@ ul { list-style: none; margin: 0; padding: 0; }
   $('#deck-reset').addEventListener('click', () => { rebuild(); announce(); deck.focus(); });
 
   deck.addEventListener('keydown', e => {
+    /* On n'intercepte aucune touche qui fait défiler verticalement — ni ↑, ni ↓,
+       ni Espace, ni Page suivante. La page doit toujours pouvoir défiler, même
+       quand la pile a le focus. Seules les flèches horizontales et Entrée agissent. */
     if (e.key === 'ArrowRight') { e.preventDefault(); next('right'); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
-    else if (e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault(); const p = pool[idx]; if (p) openSheet(p);
-    }
+    else if (e.key === 'Enter') { e.preventDefault(); const p = pool[idx]; if (p) openSheet(p); }
   });
 
   /* ----- fiche détaillée ----- */

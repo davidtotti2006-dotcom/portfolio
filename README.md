@@ -58,7 +58,7 @@ par l'URL réelle dans `index.html` (canonical, `og:url`, `og:image`, `twitter:i
 
 ## Accessibilité
 
-Navigation clavier complète (`→` projet suivant, `←` précédent, `↑` dossier, `/` recherche),
+Navigation clavier complète (`→` projet suivant, `←` précédent, `Entrée` dossier, `/` recherche),
 cibles tactiles de 44 px, contrastes vérifiés en thème clair comme sombre, `prefers-reduced-motion`
 respecté, et un repli en liste pour les cartes qui demandent un geste.
 
